@@ -1,11 +1,22 @@
 package ru.dmitry.belyaev.tinkofftesttask;
 
+import android.app.Activity;
+import android.app.ProgressDialog;
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.AsyncTask;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.view.View;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.w3c.dom.Text;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -24,17 +35,33 @@ import java.util.Locale;
  * Created by dmitrybelyaev on 04.05.2018.
  */
 
-public class DownloadNews extends AsyncTask<String, Void, Integer> {
+public class DownloadNews extends AsyncTask<Activity, Void, Integer> {
 
-    private final int DOWNLOAD_FAILED = 1;
+    private final int NO_CONNECTION = 2;
+    private final int DOWNLOAD_ERROR = 1;
     private final int DOWNLOAD_SUCCESS = 0;
+    private final String LINK_URL = "https://api.tinkoff.ru/v1/news";
     private HttpURLConnection connection;
     private ArrayList<Note> data = new ArrayList<Note>();
+    private Context context;
+    private LinearLayout linearLayout;
+
+
+    public DownloadNews(Context context, LinearLayout linearLayout) {
+        this.context = context;
+        this.linearLayout = linearLayout;
+    }
 
     @Override
-    protected Integer doInBackground(String... params) {
+    protected Integer doInBackground(Activity... params) {
         try {
-            URL url = new URL(params[0]);
+            ConnectivityManager cm =
+                    (ConnectivityManager)params[0].getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (!(cm.getActiveNetworkInfo() != null && cm.getActiveNetworkInfo().isAvailable() &&
+                    cm.getActiveNetworkInfo().isConnected())) {
+                return NO_CONNECTION;
+            }
+            URL url = new URL(LINK_URL);
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
             connection.connect();
@@ -63,24 +90,34 @@ public class DownloadNews extends AsyncTask<String, Void, Integer> {
                     Note noteObject = new Note(text, id, milliseconds, publicationDate);
                     data.add(noteObject);
                 }
-                Log.d("myLogs", data.size() + "");
                 Collections.sort(data, Note.getCompByTime());
-                for(int i = 0; i < data.size(); i++) {
-                    Log.d("myLogs", data.get(i).getPublicationDate() + " " + data.get(i).getText());
-                }
-
+                return DOWNLOAD_SUCCESS;
             }
         }
         catch(IOException e) {
-
+            e.printStackTrace();
         }
         catch(JSONException e) {
-
+            e.printStackTrace();
         }
-
-
-       return  DOWNLOAD_FAILED;
+        catch(NullPointerException e) {
+            e.printStackTrace();
+        }
+       return DOWNLOAD_ERROR;
     }
 
-
+    @Override
+    protected void onPostExecute(Integer status) {
+        if (status == NO_CONNECTION) {
+            Log.d("myLogs", "No connection!");
+        } else if (status == DOWNLOAD_ERROR) {
+            Log.d("myLogs", "Error loading data");
+        } else {
+            RecyclerView recyclerView = linearLayout.findViewById(R.id.recyclerview);
+            LinearLayoutManager linearLayoutManager = new LinearLayoutManager(context);
+            linearLayoutManager.setOrientation(LinearLayoutManager.VERTICAL);
+            recyclerView.setLayoutManager(linearLayoutManager);
+            recyclerView.setAdapter(new RecyclerAdapter(data));
+        }
+    }
 }
