@@ -1,14 +1,10 @@
 package ru.dmitry.belyaev.tinkofftesttask;
 
-import android.app.ProgressDialog;
 import android.content.Context;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
-import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
+import android.view.ViewGroup;
 import android.support.v7.widget.Toolbar;
 
 public class MainActivity extends AppCompatActivity {
@@ -22,8 +18,16 @@ public class MainActivity extends AppCompatActivity {
         toolbar = (Toolbar) findViewById(R.id.toolbarMain);
         toolbar.setTitle("Tinkoff News");
         setSupportActionBar(toolbar);
-
-        LinearLayout linearLayout = (LinearLayout) findViewById(R.id.linLayout);
-        new DownloadNews(this, linearLayout).execute(this);
+        final ViewGroup rootView = findViewById(R.id.linLayout);
+        SwipeRefreshLayout swipeRefresh = (SwipeRefreshLayout) findViewById(R.id.swipeRefresh);
+        swipeRefresh.setColorSchemeColors(getResources().getColor(R.color.colorPrimaryDark));
+        swipeRefresh.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                Context context = getApplicationContext();
+                new DownloadNews(context, rootView).execute();
+            }
+        });
+        new DownloadNews(this, rootView).execute();
     }
 }

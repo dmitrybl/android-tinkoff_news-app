@@ -1,22 +1,20 @@
 package ru.dmitry.belyaev.tinkofftesttask;
 
-import android.app.Activity;
-import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.os.AsyncTask;
+import android.support.design.widget.Snackbar;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
-import android.view.View;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.view.ViewGroup;
+import android.support.v7.widget.Toolbar;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.w3c.dom.Text;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -26,16 +24,17 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Created by dmitrybelyaev on 04.05.2018.
  */
 
-public class DownloadNews extends AsyncTask<Activity, Void, Integer> {
+public class DownloadNews extends AsyncTask<Void, Void, Integer> {
 
     private final int NO_CONNECTION = 2;
     private final int DOWNLOAD_ERROR = 1;
@@ -44,23 +43,36 @@ public class DownloadNews extends AsyncTask<Activity, Void, Integer> {
     private HttpURLConnection connection;
     private ArrayList<Note> data = new ArrayList<Note>();
     private Context context;
-    private LinearLayout linearLayout;
+    private ViewGroup rootView;
+    private SwipeRefreshLayout swipeRefresh;
+    private RecyclerView recyclerView;
+
+    private final String PREFERENCES_NAME = "DataNews";
+    private SharedPreferences sPref;
 
 
-    public DownloadNews(Context context, LinearLayout linearLayout) {
+    public DownloadNews(Context context, ViewGroup rootView) {
         this.context = context;
-        this.linearLayout = linearLayout;
+        this.rootView = rootView;
+
+        sPref = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
+        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(context);
+        linearLayoutManager.setOrientation(LinearLayoutManager.VERTICAL);
+        recyclerView = rootView.findViewById(R.id.recyclerview);
+        recyclerView.setLayoutManager(linearLayoutManager);
     }
 
     @Override
-    protected Integer doInBackground(Activity... params) {
+    protected Integer doInBackground(Void... params) {
+        swipeRefresh = (SwipeRefreshLayout)rootView.findViewById(R.id.swipeRefresh);
+        swipeRefresh.setRefreshing(true);
+        ConnectivityManager cm =
+                (ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (!(cm.getActiveNetworkInfo() != null && cm.getActiveNetworkInfo().isAvailable() &&
+                cm.getActiveNetworkInfo().isConnected())) {
+            return NO_CONNECTION;
+        }
         try {
-            ConnectivityManager cm =
-                    (ConnectivityManager)params[0].getSystemService(Context.CONNECTIVITY_SERVICE);
-            if (!(cm.getActiveNetworkInfo() != null && cm.getActiveNetworkInfo().isAvailable() &&
-                    cm.getActiveNetworkInfo().isConnected())) {
-                return NO_CONNECTION;
-            }
             URL url = new URL(LINK_URL);
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
@@ -78,6 +90,7 @@ public class DownloadNews extends AsyncTask<Activity, Void, Integer> {
                 String resultJSON = buffer.toString();
                 JSONObject jsonObject = new JSONObject(resultJSON);
                 JSONArray jsonArray = jsonObject.getJSONArray("payload");
+                Editor ed = sPref.edit();
                 for(int i = 0; i < jsonArray.length(); i++) {
                     JSONObject note = (JSONObject) jsonArray.get(i);
                     String text = note.getString("text");
@@ -87,6 +100,16 @@ public class DownloadNews extends AsyncTask<Activity, Void, Integer> {
                     SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.US);
                     String publicationDate = sdf.format(date);
                     int id = note.getInt("id");
+
+
+                    HashMap<String, String> map = new HashMap<String, String>();
+                    map.put("text", text);
+                    map.put("publicationDate", publicationDate);
+                    map.put("milliseconds", milliseconds + "");
+                    JSONObject jsonObject2 = new JSONObject(map);
+
+                    ed.putString(id  + "", jsonObject2.toString());
+                    ed.apply();
                     Note noteObject = new Note(text, id, milliseconds, publicationDate);
                     data.add(noteObject);
                 }
@@ -108,15 +131,35 @@ public class DownloadNews extends AsyncTask<Activity, Void, Integer> {
 
     @Override
     protected void onPostExecute(Integer status) {
+        swipeRefresh.setRefreshing(false);
+        Toolbar toolbar = (Toolbar) rootView.findViewById(R.id.toolbarMain);
         if (status == NO_CONNECTION) {
-            Log.d("myLogs", "No connection!");
-        } else if (status == DOWNLOAD_ERROR) {
-            Log.d("myLogs", "Error loading data");
-        } else {
-            RecyclerView recyclerView = linearLayout.findViewById(R.id.recyclerview);
-            LinearLayoutManager linearLayoutManager = new LinearLayoutManager(context);
-            linearLayoutManager.setOrientation(LinearLayoutManager.VERTICAL);
-            recyclerView.setLayoutManager(linearLayoutManager);
+            toolbar.setTitle("No internet connection!");
+            Snackbar.make(rootView, "No internet connection! Loading from local", Snackbar.LENGTH_SHORT).show();
+            Map<String, ?> allPreferences = sPref.getAll();
+
+            try {
+                for (Map.Entry<String, ?> entry : allPreferences.entrySet()) {
+                    JSONObject jsonObject = new JSONObject(entry.getValue().toString());
+                    String text = jsonObject.getString("text");
+                    long milliseconds = Long.parseLong(jsonObject.getString("milliseconds"));
+                    String publicationDate = jsonObject.getString("publicationDate");
+                    int id = Integer.parseInt(entry.getKey());
+                    data.add(new Note(text, id, milliseconds, publicationDate));
+                }
+            }
+            catch (JSONException e) {
+                e.printStackTrace();
+            }
+            Collections.sort(data, Note.getCompByTime());
+            recyclerView.setAdapter(new RecyclerAdapter(data));
+        }
+        else if (status == DOWNLOAD_ERROR) {
+            toolbar.setTitle("Error!");
+            Snackbar.make(rootView, "An error occured!", Snackbar.LENGTH_SHORT).show();
+        }
+        else {
+            toolbar.setTitle("Tinkoff News");
             recyclerView.setAdapter(new RecyclerAdapter(data));
         }
     }
