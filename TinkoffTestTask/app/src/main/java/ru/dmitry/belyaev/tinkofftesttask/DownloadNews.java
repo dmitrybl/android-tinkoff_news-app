@@ -9,6 +9,7 @@ import android.support.design.widget.Snackbar;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.view.View;
 import android.view.ViewGroup;
 import android.support.v7.widget.Toolbar;
 
@@ -152,7 +153,7 @@ public class DownloadNews extends AsyncTask<Void, Void, Integer> {
                 e.printStackTrace();
             }
             Collections.sort(data, Note.getCompByTime());
-            recyclerView.setAdapter(new RecyclerAdapter(data));
+            recyclerView.setAdapter(new RecyclerAdapter(context, data));
         }
         else if (status == DOWNLOAD_ERROR) {
             toolbar.setTitle("Error!");
@@ -160,7 +161,7 @@ public class DownloadNews extends AsyncTask<Void, Void, Integer> {
         }
         else {
             toolbar.setTitle("Tinkoff News");
-            recyclerView.setAdapter(new RecyclerAdapter(data));
+            recyclerView.setAdapter(new RecyclerAdapter(context, data));
         }
     }
 }
