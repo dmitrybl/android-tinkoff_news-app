@@ -153,7 +153,7 @@ public class DownloadNews extends AsyncTask<Void, Void, Integer> {
                 e.printStackTrace();
             }
             Collections.sort(data, Note.getCompByTime());
-            recyclerView.setAdapter(new RecyclerAdapter(context, data));
+            recyclerView.setAdapter(new RecyclerAdapter(context, data, swipeRefresh));
         }
         else if (status == DOWNLOAD_ERROR) {
             toolbar.setTitle("Error!");
@@ -161,7 +161,7 @@ public class DownloadNews extends AsyncTask<Void, Void, Integer> {
         }
         else {
             toolbar.setTitle("Tinkoff News");
-            recyclerView.setAdapter(new RecyclerAdapter(context, data));
+            recyclerView.setAdapter(new RecyclerAdapter(context, data, swipeRefresh));
         }
     }
 }

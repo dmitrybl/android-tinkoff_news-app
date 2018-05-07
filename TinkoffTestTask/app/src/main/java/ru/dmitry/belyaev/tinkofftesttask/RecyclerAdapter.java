@@ -2,6 +2,7 @@ package ru.dmitry.belyaev.tinkofftesttask;
 
 import android.content.Context;
 import android.content.Intent;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.RecyclerView;
 import android.text.Html;
 import android.util.Log;
@@ -21,6 +22,7 @@ public class RecyclerAdapter extends RecyclerView.Adapter<RecyclerAdapter.MyView
 
     private ArrayList<Note> data;
     private Context context;
+    private SwipeRefreshLayout swipeRefresh;
 
     public class MyViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
         public TextView newsTextView;
@@ -35,16 +37,20 @@ public class RecyclerAdapter extends RecyclerView.Adapter<RecyclerAdapter.MyView
 
         @Override
         public void onClick(View view) {
-            Intent intent = new Intent(context, DetailActivity.class);
-            intent.putExtra("id", data.get(getLayoutPosition()).getId());
-            context.startActivity(intent);
+            if(!swipeRefresh.isRefreshing()) {
+                Intent intent = new Intent(context, DetailActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                intent.putExtra("id", data.get(getLayoutPosition()).getId());
+                context.startActivity(intent);
+            }
         }
     }
 
 
-    public RecyclerAdapter(Context context, ArrayList<Note> data) {
+    public RecyclerAdapter(Context context, ArrayList<Note> data, SwipeRefreshLayout swipeRefresh) {
         this.data = data;
         this.context = context;
+        this.swipeRefresh = swipeRefresh;
     }
 
     @Override
